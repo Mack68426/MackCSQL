@@ -1,0 +1,12 @@
+{
+    "DeviceTypeId":0,
+    "StatusId":0,
+    "ActStatus":"OFF",
+    "ActAlarmMsg":"[15][1001] EMERGENCY STOP",
+    "ActMainProgramName":"O602",
+    "ActMainProgramNote":"",
+    "ActPartCount":76,
+    "Profit":0.0,
+    "ProductionRequiredQty":0,
+    "ProductionRequiredQtyTotal":0
+}
