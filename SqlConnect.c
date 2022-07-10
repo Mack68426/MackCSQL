@@ -1,4 +1,12 @@
-// NOTE: 
+/*  NOTE: 
+*       1. 連接SQL Server
+*       2. 創立資料庫，若已經有則跳過
+*       3. 建立資料表，若已經有則跳過
+*       4. 產生資料並插入到資料表裡
+*       5. 若資料>=X筆(X=10)，則做刪除
+*       6. 延遲m秒(m=1)
+*       7. 重複4~6直到時間結束(T=5min)
+*/
 
 /* 備忘錄:
 *   + 模組化
@@ -27,13 +35,13 @@
 
 // Exception Handle for ODBC functions
 #define TryODBC(handle, hdtype, retcode) { \
-    RETCODE rc = retcode; \
+    SQLRETURN rc = retcode; \
     if(rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO) \
     {\
         Diagnose(handle, hdtype, rc); \
     } \
     else { \
-        fprintf(stderr, "Error: %s\n",retcode); \
+        fprintf(stderr, "Error: "#retcode"\n"); \
         exit(1); \
     } \
 }
@@ -51,15 +59,14 @@ typedef struct Machine{
     double Profit;
     int ProductionRequiredQty;
     int ProductionRequiredQtyTotal;
-    struct Machine *Next;
 } machine_t;
 
 
 /* 副程式宣告 */
 void Diagnose(SQLHANDLE handle, SQLSMALLINT hdType, RETCODE retcode);
-void Connect(RETCODE *retcode, SQLCHAR *connect_str);
+void Connect(char *);
 void Prepare(SQLHSTMT *satement, SQLHDBC connection, SQLCHAR prepSql);
-char *GenerateData();
+char GenerateData();
 void Close();
 // void DisplayResults(SQLHSTMT statement,SQLSMALLINT count);
 char *getToday();
@@ -69,11 +76,11 @@ char *Format(char *format, ...);
 
 // 資料庫操作
 void create_database(SQLCHAR *dbName);
-void create_table(RETCODE *retcode);
-void insert_into(RETCODE *retcode, SQLCHAR sql[MAXBUFFLEN]);
+void create_table(SQLCHAR *tableName);
+void insert_into(SQLCHAR *tableName);
 void delete_data();
 
-// 其他函式
+// 其他自訂函式
 int asprintf(char **buffer, const char *format, ...);
 int vasprintf(char **buffer, const char *format, va_list ap);
 
@@ -82,38 +89,34 @@ SQLHENV henv = SQL_NULL_HENV; // 連線環境
 SQLHDBC hdbc1 = SQL_NULL_HDBC; // 連線處理
 SQLHSTMT hstmt1 = SQL_NULL_HSTMT; // 狀態處理
 
+/* 
 SQLCHAR *DSN = "CSql";
-SQLCHAR *host = "140.128.109.115";
-SQLCHAR *User = "sa";
+SQLCHAR *host = "140.128.109.115:1433";
+SQLCHAR *server = "sa";
 SQLCHAR *password = "s08490043";
 SQLCHAR *Database = "test";
+ */
 
-/* 連線字串格式 */
-SQLCHAR *ConnStrFmt = 
-    "SERVER=%s;UID=%s;PWD=%s;TrustServerCertificate=true;DATABASE=%s;";
-
+// 連線字串格式 
+// SQLCHAR *ConnStrFmt = 
+    // "SERVER=%s;UID=%s;PWD=%s;TrustServerCertificate=true;DATABASE=%s;";
 
 /*************************************************************************/
 
 
 int main(){
     
-    /* ODBC回傳的程式碼(?? */
-    RETCODE ReturnCode;
-
     srand((unsigned int)time(NULL));
     
-    /* 連線SQL Server */
-    Connect(&ReturnCode, ConnectionString(ConnStrFmt));
-
+    
     // 建立一個資料庫
-    // create_database("CSQLDB");
+    create_database("OdbcCDB");
     
     // 建立資料表
-    create_table(&ReturnCode);
+    create_table("Proceesor");
 
     // 插入資料
-    // insert_into(ReturnCode, SqlString);
+    // insert_into();
 
     printf("操作結束。\n..... ");
     fflush(stdout);
@@ -127,8 +130,7 @@ int main(){
 }
 
 // 未完成
-/*
-void AllocateData(SQLSMALLINT colCount, machine_t **data)
+/* void AllocateData(SQLSMALLINT colCount, machine_t **data)
 {
     machine_t *this, *last = NULL;
 
@@ -146,61 +148,66 @@ void AllocateData(SQLSMALLINT colCount, machine_t **data)
 
     }
 
-}
-*/
-void insert_into(RETCODE *retcode, SQLCHAR sql[MAXBUFFLEN]){
-    
-    SQLSMALLINT NumResults;
+} */
 
-    TryODBC(hstmt1, SQL_HANDLE_STMT, SQLNumResultCols(hstmt1, &NumResults));
-
-    // if(NumResults>0)    DisplayResults(hstmt1,NumResults);
-
-    
-
-    SQLLEN rows_count;
-
-    TryODBC(hstmt1, SQL_HANDLE_STMT, SQLRowCount(hstmt1, &rows_count));
-
-    if(rows_count>=0) {
-
-        fprintf(stdout, "%lld row%s affected\n請按下Enter繼續 .....", 
-            rows_count, rows_count==1?"":"s");
-        
-        fflush(stdout);
-
-        getchar();
-    }
+void insert_into(SQLCHAR *tableName){
 
     // 分配控制程式碼
     TryODBC(hstmt1, SQL_HANDLE_STMT, SQLAllocHandle(SQL_HANDLE_STMT, hdbc1, &hstmt1));
 
+    Connect(Format("server=%s;UID=%s;PWD=%s;TrustServerCertificate=true;DATABASE=%s;",
+            "140.128.109.115:1433", "sa", "s08490043", "OdbcCDB"));
+    
+    SQLSMALLINT NumResults;
+
+    char *checkFmt = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=\"%s\";";
+
+    char *sql = Format(checkFmt,tableName);
+    
+    SQLRETURN state;
+    
+    
+    TryODBC(hstmt1, SQL_HANDLE_STMT, SQLExecDirect(hstmt1, (SQLCHAR *)sql, (SQLINTEGER)strlen(sql)))
+
+
     // 直接執行 SQL
-    SQLExecDirect(hstmt1, sql, 255);
+    SQLExecDirect(hstmt1, 
+        Format("INSERT INTO %s VALUES(\"%s\", %s, %s);", tableName), 255);
 
     printf("操作成功!\n");    fflush(stdout);
+
+    Close();
 
     // 釋放控制程式碼
     SQLCloseCursor(hstmt1);
     SQLFreeHandle(SQL_HANDLE_STMT, hstmt1);
 }
 
-void create_table(RETCODE *retcode){
+void create_table(SQLCHAR *tableName){
 
     // 分配控制程式碼
-    *retcode = SQLAllocHandle(SQL_HANDLE_STMT, hdbc1, &hstmt1);
+    TryODBC(&hstmt1, SQL_HANDLE_STMT, SQLAllocHandle(SQL_HANDLE_STMT, hdbc1, &hstmt1));
 
-    // 連結引數方式
+    // 連接server
+    Connect(Format("server=%s;UID=%s;PWD=%s;TrustServerCertificate=true;DATABASE=\"%s\";",
+            "140.128.109.115:1433", "sa", "s08490043", "OdbcCDB"));
 
-    SQLCHAR sql[200] = "CREATE TABLE Computer( \
-        Id VARCHAR(20) NOT NULL, \
-        Value NVARCHAR(MAX) NULL, \
+    
+
+    char sql_fmt[] = "CREATE TABLE %s \
+    ( \
+        DeviceId nvarchar(20) NOT NULL, \
+        DeviceValue nvarchar(MAX) NULL, \
+        UpdateTime datetime NULL \
     );";
+
     /* 直接執行SQL語句 */
-    SQLExecDirect(hstmt1, sql, 200);
+    SQLExecDirect(hstmt1, Format(sql_fmt, tableName), 200);
     
     printf("操作成功!!\n請按下Enter繼續....."); fflush(stdout);
     getchar();
+
+    Close();
 
     // 釋放控制程式碼
     SQLCloseCursor(hstmt1);
@@ -210,34 +217,44 @@ void create_table(RETCODE *retcode){
 
 void create_database(SQLCHAR *dbName){
 
-    SQLCHAR *sql = (SQLCHAR *)Format("CREATE DATABASE %s", dbName);
-
     TryODBC(&hstmt1, SQL_HANDLE_STMT, SQLAllocHandle(SQL_HANDLE_STMT, hdbc1, &hstmt1));
 
-    SQLExecDirect(&hstmt1, sql, 200);
+    Connect(Format("server=%s;UID=%s;PWD=%s;TrustServerCertificate=true;",
+            "140.128.109.115:1433", "sa", "s08490043"));
+
+    
+
+    char *sql = Format("SELECT COUNT(*) FROM SYSDATABASES WHERE name=\"%s\"", dbName);
+
+    TryODBC(hstmt1, SQL_HANDLE_STMT, SQLExecDirect(hstmt1, sql, (SQLINTEGER)strlen(sql)))
+    
+
+    SQLExecDirect(hstmt1, Format("CREATE DATABASE %s", dbName), 200);
 
     printf("\n操作成功!!\n請按下Enter繼續....."); fflush(stdout);
     getchar();
 
+    Close();
+
     // 釋放控制程式碼
     SQLCloseCursor(hstmt1);
     SQLFreeHandle(SQL_HANDLE_STMT, hstmt1);
+
 }
 
 
-/**************************************/
-/*  上方為MicroSoft官方C++程式碼寫法    */
-/*  下方為網路論壇C語言寫法             */
-/**************************************/
-void Connect(RETCODE *retcode, SQLCHAR *connect_str)
+/*******************************************/
+/*      上方為MicroSoft官方C++文件寫法       */
+/*          下方為網路論壇C語言寫法          */
+/*******************************************/
+void Connect(char *sql)
 {   
-
-    char outStr[MAXBUFFLEN];
     /****************/
     /*              */
     /* MS 官方程式碼 */
     /*              */
     /****************/
+
     // 分配環境
     if(SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv)==SQL_ERROR)
     {
@@ -251,15 +268,18 @@ void Connect(RETCODE *retcode, SQLCHAR *connect_str)
 
     /* 建立連線 */
     TryODBC(henv, SQL_HANDLE_ENV, SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc1));
+    
+
+    SQLCHAR outStr[MAXBUFFLEN];
 
     // 連線Driver
     TryODBC(hdbc1, 
             SQL_HANDLE_DBC, 
             SQLDriverConnect(hdbc1, GetDesktopWindow(), 
-                Format(ConnStrFmt,*host, User, password,Database), 
-                SQL_NTS, NULL, 0, NULL, SQL_DRIVER_COMPLETE));
+            sql, 
+            SQL_NTS, outStr, 0, NULL, SQL_DRIVER_NOPROMPT));
 
-    fprintf(stdout, "連線成功!\n 連線字串: %s", outStr);    fflush(stdout);
+    fprintf(stdout,"連線成功!\n 連線字串: %s\n", outStr[0]);    fflush(stdout);
 
 
     TryODBC(hdbc1,
@@ -296,29 +316,7 @@ void Connect(RETCODE *retcode, SQLCHAR *connect_str)
 
 }
 
-/* 診斷ODBC函式狀態 */
-void Diagnose(SQLHANDLE handle, SQLSMALLINT hdType, RETCODE retcode)
-{
-    SQLSMALLINT records = 0;
-    SQLINTEGER Error;
 
-    CHAR message[1024];
-    CHAR state[SQL_SQLSTATE_SIZE + 1];
-
-    if(retcode == SQL_INVALID_HANDLE){
-        fprintf(stderr, "Invalid handle!\n");
-        return ;
-    }
-
-    SQLRETURN diag = SQLGetDiagRec(hdType,handle, ++records, state, &Error, message, 
-        (SQLSMALLINT)(sizeof(message) / sizeof(CHAR)), (SQLSMALLINT *)NULL);
-    
-    while( diag == SQL_SUCCESS){
-        if(strncmp(state,"t0001",5)){
-            fprintf(stderr, "[%s] %s (%d)\n", state, message, Error);
-        }
-    }
-}
 
 /* 關閉連線 */
 void Close(){
@@ -330,21 +328,32 @@ void Close(){
     SQLFreeHandle(SQL_HANDLE_ENV, henv);
 }
 
-char *getToday(){
+/* 診斷ODBC函式狀態 */
+void Diagnose(SQLHANDLE handle, SQLSMALLINT hdType, RETCODE retcode)
+{
+    SQLSMALLINT records = 0;
+    SQLINTEGER Error;
+
+    char message[1024];
+    char state[SQL_SQLSTATE_SIZE + 1];
+
+    if(retcode == SQL_INVALID_HANDLE){
+        fprintf(stderr, "Invalid handle!\n");
+        return ;
+    }
+
+    SQLRETURN diag = SQLGetDiagRec(hdType,handle, ++records, state, &Error, message, 
+        (SQLSMALLINT)(sizeof(message) / sizeof(char)), (SQLSMALLINT *)NULL);
     
-    // 取得今日日期
-    time_t t = time(NULL);
-    struct tm *tm = localtime(&t);
-
-    // 格式化輸出today變數
-    char *today = malloc(sizeof(char) * 64);
-    assert(strftime(today, sizeof(today), "%Y-%m-%d %H:%M:%S", tm));
-    fprintf(stdout,"%s\n", today);
-
-    return today;
+    while( diag == SQL_SUCCESS){
+        if(strncmp(state,"01004", 5)){
+            fprintf(stderr, "[%s] %s (%d)\n", state, message, Error);
+        }
+    }
 }
 
-char *GenerateData(){
+// 待完成
+char GenerateData(){
     // 亂數資料
     /* 
     char *m;
@@ -370,6 +379,20 @@ char *GenerateData(){
      */
 }
 
+char *getToday(){
+    
+    // 取得今日日期
+    time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+
+    // 格式化輸出today變數
+    char *today = malloc(sizeof(char) * 64);
+    assert(strftime(today, sizeof(today), "%Y-%m-%d %H:%M:%S", tm));
+    fprintf(stdout,"%s\n", today);
+
+    return today;
+}
+
 char *Format(char *format, ...)
 {
     if (format == NULL) return NULL;
@@ -377,7 +400,7 @@ char *Format(char *format, ...)
     else{
         va_list argsList;
         va_start(argsList, format);
-        char *str;
+        char *str=NULL;
         
         asprintf(&str, format, argsList);
 

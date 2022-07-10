@@ -1,7 +1,7 @@
 # SQL Server Connection Makefile
 
 CC = gcc
-EXE = connect.exe
+EXE = SqlConnect.exe
 OBJS = SqlConnect.c
 LIB = odbc32
 
