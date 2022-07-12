@@ -7,7 +7,7 @@ LIB = odbc32
 
 # compile the program with the specified libraries
 all: $(OBJS)
-	$(CC) -o $(EXE) $(OBJS) -l$(LIB) && ./$(EXE)
+	$(CC) $(OBJS) -o $(EXE) -l$(LIB) && ./$(EXE)
 
 
 
