@@ -28,6 +28,7 @@
 #include<stdlib.h>
 #include<time.h>
 #include<assert.h>
+#include<wchar.h>
 
 #define MAX_ARG_LENGTH 0x10001
 #define SQL_ENV_FAILURE -100
@@ -36,17 +37,16 @@
 // Exception Handle for ODBC functions
 #define TryODBC(handle, hdtype, retcode) { \
     SQLRETURN rc = retcode; \
-    if(rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO) \
-    {\
-        Diagnose(handle, hdtype, rc); \
-    } \
-    else { \
-        fprintf(stderr, "Error: "#retcode"\n"); \
+    if(rc == SQL_ERROR){ \
+        fprintf(stderr, "Error in "#retcode"\nState: %d\n", rc); \
         exit(1); \
+    } \
+    else \
+    { \
+        Diagnose(handle, hdtype, rc); \
     } \
 }
 
-typedef void *Object;
 
 typedef struct Machine{
     int DeviceId;
@@ -155,7 +155,8 @@ void insert_into(SQLCHAR *tableName){
     // 分配控制程式碼
     TryODBC(hstmt1, SQL_HANDLE_STMT, SQLAllocHandle(SQL_HANDLE_STMT, hdbc1, &hstmt1));
 
-    Connect(Format("server=%s;UID=%s;PWD=%s;TrustServerCertificate=true;DATABASE=%s;",
+    Connect(Format("Driver={SQL Server Native Client 11.0};server=%s;UID=%s;\
+            PWD=%s;TrustServerCertificate=true;DATABASE=%s;",
             "140.128.109.115:1433", "sa", "s08490043", "OdbcCDB"));
     
     SQLSMALLINT NumResults;
@@ -189,7 +190,7 @@ void create_table(SQLCHAR *tableName){
     TryODBC(&hstmt1, SQL_HANDLE_STMT, SQLAllocHandle(SQL_HANDLE_STMT, hdbc1, &hstmt1));
 
     // 連接server
-    Connect(Format("server=%s;UID=%s;PWD=%s;TrustServerCertificate=true;DATABASE=\"%s\";",
+    Connect(Format("Driver={SQL Server Native Client 11.0};server=%s;UID=%s;PWD=%s;TrustServerCertificate=true;DATABASE=\"%s\";",
             "140.128.109.115:1433", "sa", "s08490043", "OdbcCDB"));
 
     
@@ -217,14 +218,14 @@ void create_table(SQLCHAR *tableName){
 
 void create_database(SQLCHAR *dbName){
 
-    TryODBC(&hstmt1, SQL_HANDLE_STMT, SQLAllocHandle(SQL_HANDLE_STMT, hdbc1, &hstmt1));
+    // TryODBC(hstmt1, SQL_HANDLE_STMT, SQLAllocHandle(SQL_HANDLE_STMT, hdbc1, &hstmt1));
 
-    Connect(Format("server=%s;UID=%s;PWD=%s;TrustServerCertificate=true;",
-            "140.128.109.115:1433", "sa", "s08490043"));
+    Connect(Format("Driver={SQL Server Native Client 11.0};server=%s;UID=%s;PWD=%s;\
+        TrustServerCertificate=true;", "140.128.109.115", "sa", "s08490043"));
 
     
 
-    char *sql = Format("SELECT COUNT(*) FROM SYSDATABASES WHERE name=\"%s\"", dbName);
+    char *sql = Format("SELECT COUNT(*) FROM SYSDATABASES WHERE name=\"%u\"", dbName);
 
     TryODBC(hstmt1, SQL_HANDLE_STMT, SQLExecDirect(hstmt1, sql, (SQLINTEGER)strlen(sql)))
     
@@ -247,6 +248,8 @@ void create_database(SQLCHAR *dbName){
 /*      上方為MicroSoft官方C++文件寫法       */
 /*          下方為網路論壇C語言寫法          */
 /*******************************************/
+
+// 行282: SQLDriverConnect會報錯需修正
 void Connect(char *sql)
 {   
     /****************/
@@ -271,15 +274,17 @@ void Connect(char *sql)
     
 
     SQLCHAR outStr[MAXBUFFLEN];
+    SQLSMALLINT outStrLen;
 
-    // 連線Driver
+    // 連線Server
     TryODBC(hdbc1, 
-            SQL_HANDLE_DBC, 
-            SQLDriverConnect(hdbc1, GetDesktopWindow(), 
-            sql, 
-            SQL_NTS, outStr, 0, NULL, SQL_DRIVER_NOPROMPT));
+        SQL_HANDLE_DBC, 
+        SQLDriverConnect(hdbc1, GetDesktopWindow(),
+            (SQLCHAR *)sql,
+            SQL_NTS, 
+            outStr, (SQLSMALLINT)MAXBUFFLEN, &outStrLen, SQL_DRIVER_COMPLETE));
 
-    fprintf(stdout,"連線成功!\n 連線字串: %s\n", outStr[0]);    fflush(stdout);
+    fprintf(stdout,"連線成功!\n 連線字串: %s\n", outStr);
 
 
     TryODBC(hdbc1,
@@ -333,22 +338,27 @@ void Diagnose(SQLHANDLE handle, SQLSMALLINT hdType, RETCODE retcode)
 {
     SQLSMALLINT records = 0;
     SQLINTEGER Error;
-
-    char message[1024];
-    char state[SQL_SQLSTATE_SIZE + 1];
+    int i = 0;
+    wchar_t message[1024];
+    wchar_t state[SQL_SQLSTATE_SIZE + 1];
 
     if(retcode == SQL_INVALID_HANDLE){
         fprintf(stderr, "Invalid handle!\n");
         return ;
     }
 
-    SQLRETURN diag = SQLGetDiagRec(hdType,handle, ++records, state, &Error, message, 
-        (SQLSMALLINT)(sizeof(message) / sizeof(char)), (SQLSMALLINT *)NULL);
+    SQLRETURN diag = SQLGetDiagRecW(hdType, handle, ++records, state, &Error, message, 
+        (SQLSMALLINT)(sizeof(message) / sizeof(wchar_t)), (SQLSMALLINT *)NULL);
+        
     
     while( diag == SQL_SUCCESS){
-        if(strncmp(state,"01004", 5)){
-            fprintf(stderr, "[%s] %s (%d)\n", state, message, Error);
+        if (i>10)   break;
+
+        if(wcsncmp(state, L"01004", 5)){
+            fwprintf(stderr, L"[%5.5s] %s (%d)\n", state, message, Error);
         }
+
+        i++;
     }
 }
 
