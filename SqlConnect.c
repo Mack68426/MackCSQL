@@ -45,13 +45,8 @@
     } \
     if(rc == SQL_ERROR){ \
         fprintf(stderr, "Error in "#retcode"\nState: %d\n", rc); \
-<<<<<<< HEAD
         if(hstmt1)  SQLFreeHandle(SQL_HANDLE_STMT, hstmt1); \
         if (hdbc1) { SQLDisconnect(hdbc1); SQLFreeHandle(SQL_HANDLE_DBC, hdbc1); } \
-=======
-        if (hstmt1)  SQLFreeHandle(SQL_HANDLE_STMT, hstmt1); \
-        if (hdbc1)  { SQLDisconnect(hdbc1);  SQLFreeHandle(SQL_HANDLE_DBC, hdbc1); } \
->>>>>>> 6b95d3c75d3ce2b573bd38cedd473d90ada19350
         if (henv)   SQLFreeHandle(SQL_HANDLE_ENV, henv); \
         exit(1); \
     } \
