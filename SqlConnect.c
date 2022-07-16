@@ -45,8 +45,13 @@
     } \
     if(rc == SQL_ERROR){ \
         fprintf(stderr, "Error in "#retcode"\nState: %d\n", rc); \
+<<<<<<< HEAD
         if(hstmt1)  SQLFreeHandle(SQL_HANDLE_STMT, hstmt1); \
         if (hdbc1) { SQLDisconnect(hdbc1); SQLFreeHandle(SQL_HANDLE_DBC, hdbc1); } \
+=======
+        if (hstmt1)  SQLFreeHandle(SQL_HANDLE_STMT, hstmt1); \
+        if (hdbc1)  { SQLDisconnect(hdbc1);  SQLFreeHandle(SQL_HANDLE_DBC, hdbc1); } \
+>>>>>>> 6b95d3c75d3ce2b573bd38cedd473d90ada19350
         if (henv)   SQLFreeHandle(SQL_HANDLE_ENV, henv); \
         exit(1); \
     } \
@@ -82,9 +87,9 @@ char *Format(char *format, ...);
 
 
 // 資料庫操作
-void create_database(SQLCHAR *dbName);
-void create_table(SQLCHAR *tableName);
-void insert_into(SQLCHAR *tableName);
+void create_database(char *dbName);
+void create_table(char *tableName);
+void insert_into(char *tableName);
 void delete_data();
 
 // 其他自訂函式
@@ -157,7 +162,7 @@ int main(){
 
 } */
 
-void insert_into(SQLCHAR *tableName){
+void insert_into(char *tableName){
 
     // 分配控制程式碼
     TryODBC(hstmt1, SQL_HANDLE_STMT, SQLAllocHandle(SQL_HANDLE_STMT, hdbc1, &hstmt1));
@@ -191,7 +196,7 @@ void insert_into(SQLCHAR *tableName){
     SQLFreeHandle(SQL_HANDLE_STMT, hstmt1);
 }
 
-void create_table(SQLCHAR *tableName){
+void create_table(char *tableName){
 
     // 分配控制程式碼
     TryODBC(&hstmt1, SQL_HANDLE_STMT, SQLAllocHandle(SQL_HANDLE_STMT, hdbc1, &hstmt1));
@@ -223,7 +228,7 @@ void create_table(SQLCHAR *tableName){
 
 }
 
-void create_database(SQLCHAR *dbName){
+void create_database(char *dbName){
 
     // TryODBC(hstmt1, SQL_HANDLE_STMT, SQLAllocHandle(SQL_HANDLE_STMT, hdbc1, &hstmt1));
 
@@ -276,7 +281,7 @@ void Connect(char *sql)
     TryODBC(henv, SQL_HANDLE_ENV, 
         SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, SQL_IS_INTEGER));
 
-    /* 建立連線 */
+    /* 分配連線資源 */
     TryODBC(henv, SQL_HANDLE_ENV, SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc1));
     
 
@@ -291,7 +296,7 @@ void Connect(char *sql)
             SQL_NTS, 
             NULL, 0, NULL, SQL_DRIVER_COMPLETE));
 
-    fprintf(stdout,"連線成功!\n 連線字串: %s\n", outStr);
+    fprintf(stdout,"連線成功!\n 連線字串: \n");
 
 
     TryODBC(hdbc1,
@@ -346,8 +351,8 @@ void Diagnose(SQLHANDLE handle, SQLSMALLINT hdType, RETCODE retcode)
     SQLSMALLINT records = 0;
     SQLINTEGER Error;
     int i = 0;
-    wchar_t message[1024];
-    wchar_t state[SQL_SQLSTATE_SIZE + 1];
+    WCHAR message[1024];
+    WCHAR state[SQL_SQLSTATE_SIZE + 1];
 
     if(retcode == SQL_INVALID_HANDLE){
         fprintf(stderr, "Invalid handle!\n");
@@ -355,7 +360,7 @@ void Diagnose(SQLHANDLE handle, SQLSMALLINT hdType, RETCODE retcode)
     }
 
     SQLRETURN diag = SQLGetDiagRecW(hdType, handle, ++records, state, &Error, message, 
-        (SQLSMALLINT)(sizeof(message) / sizeof(wchar_t)), (SQLSMALLINT *)NULL);
+        (SQLSMALLINT)(sizeof(message) / sizeof(WCHAR)), (SQLSMALLINT *)NULL);
         
     
     while( diag == SQL_SUCCESS){
