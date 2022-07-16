@@ -3,17 +3,14 @@
         {
             "type": "cppbuild",
             "label": "C/C++: gcc.exe 建置使用中檔案",
-            "command": "D:/MSYS2/usr/bin/gcc.exe",
+            "command": "D:\\MSYS2\\usr\\bin\\gcc.exe",
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
                 "${file}",
                 "-o",
-                "${fileDirname}/${fileBasenameNoExtension}.exe"
+                "${fileDirname}\\${fileBasenameNoExtension}.exe"
             ],
-            "options": {
-                "cwd": "D:/MSYS2/usr/bin"
-            },
             "problemMatcher": [
                 "$gcc"
             ],

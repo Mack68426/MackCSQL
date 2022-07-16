@@ -1,8 +1,0 @@
-{
-    "files.associations": {
-        "*.html": "html",
-        "stdlib.h": "c",
-        "odbcss.h": "c",
-        "*.ipp": "c"
-    }
-}

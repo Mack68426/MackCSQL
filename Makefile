@@ -1,13 +1,13 @@
 # SQL Server Connection Makefile
 
 CC = gcc
-EXE = SqlConnect.exe
+EXE = SqlConnect
 OBJS = SqlConnect.c
-LIB = odbc32
+LIB = -lodbc32
 
 # compile the program with the specified libraries
 all: $(OBJS)
-	$(CC) -o $(EXE) $(OBJS) -l$(LIB) && ./$(EXE)
+	$(CC) $(OBJS) -o $(EXE)  $(LIB)
 
 
 

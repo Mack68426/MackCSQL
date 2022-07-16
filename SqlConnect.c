@@ -34,21 +34,26 @@
 #define SQL_ENV_FAILURE -100
 #define MAXBUFFLEN 256
 
+
+
 // Exception Handle for ODBC functions
 #define TryODBC(handle, hdtype, retcode) { \
     SQLRETURN rc = retcode; \
-    if(rc == SQL_ERROR){ \
-        fprintf(stderr, "Error in "#retcode"\nState: %d\n", rc); \
-        exit(1); \
-    } \
-    else \
+    if(rc != SQL_SUCCESS) \
     { \
         Diagnose(handle, hdtype, rc); \
+    } \
+    if(rc == SQL_ERROR){ \
+        fprintf(stderr, "Error in "#retcode"\nState: %d\n", rc); \
+        if(hstmt1)  SQLFreeHandle(SQL_HANDLE_STMT, hstmt1); \
+        if (hdbc1) { SQLDisconnect(hdbc1); SQLFreeHandle(SQL_HANDLE_DBC, hdbc1); } \
+        if (henv)   SQLFreeHandle(SQL_HANDLE_ENV, henv); \
+        exit(1); \
     } \
 }
 
 
-typedef struct Machine{
+typedef struct MachineValue{
     int DeviceId;
     int StatusId;
     SQLCHAR ActStatus[10];
@@ -59,7 +64,9 @@ typedef struct Machine{
     double Profit;
     int ProductionRequiredQty;
     int ProductionRequiredQtyTotal;
-} machine_t;
+} machval_t;
+
+
 
 
 /* 副程式宣告 */
@@ -91,7 +98,7 @@ SQLHSTMT hstmt1 = SQL_NULL_HSTMT; // 狀態處理
 
 /* 
 SQLCHAR *DSN = "CSql";
-SQLCHAR *host = "140.128.109.115:1433";
+SQLCHAR *host = "140.128.109.115";
 SQLCHAR *server = "sa";
 SQLCHAR *password = "s08490043";
 SQLCHAR *Database = "test";
@@ -110,10 +117,10 @@ int main(){
     
     
     // 建立一個資料庫
-    create_database("OdbcCDB");
+    create_database("OdbcDB");
     
     // 建立資料表
-    create_table("Proceesor");
+    // create_table("Proceesor");
 
     // 插入資料
     // insert_into();
@@ -155,9 +162,9 @@ void insert_into(SQLCHAR *tableName){
     // 分配控制程式碼
     TryODBC(hstmt1, SQL_HANDLE_STMT, SQLAllocHandle(SQL_HANDLE_STMT, hdbc1, &hstmt1));
 
-    Connect(Format("Driver={SQL Server Native Client 11.0};server=%s;UID=%s;\
+    Connect(Format("Server=%s;UID=%s;\
             PWD=%s;TrustServerCertificate=true;DATABASE=%s;",
-            "140.128.109.115:1433", "sa", "s08490043", "OdbcCDB"));
+            "140.128.109.115", "sa", "s08490043", "OdbcDB"));
     
     SQLSMALLINT NumResults;
 
@@ -190,8 +197,8 @@ void create_table(SQLCHAR *tableName){
     TryODBC(&hstmt1, SQL_HANDLE_STMT, SQLAllocHandle(SQL_HANDLE_STMT, hdbc1, &hstmt1));
 
     // 連接server
-    Connect(Format("Driver={SQL Server Native Client 11.0};server=%s;UID=%s;PWD=%s;TrustServerCertificate=true;DATABASE=\"%s\";",
-            "140.128.109.115:1433", "sa", "s08490043", "OdbcCDB"));
+    Connect(Format("Server=%s;UID=%s;PWD=%s;TrustServerCertificate=true;DATABASE=\"%s\";",
+            "140.128.109.115:1433", "sa", "s08490043", "OdbcDB"));
 
     
 
@@ -220,7 +227,7 @@ void create_database(SQLCHAR *dbName){
 
     // TryODBC(hstmt1, SQL_HANDLE_STMT, SQLAllocHandle(SQL_HANDLE_STMT, hdbc1, &hstmt1));
 
-    Connect(Format("Driver={SQL Server Native Client 11.0};server=%s;UID=%s;PWD=%s;\
+    Connect(Format("Server=%s;UID=%s;PWD=%s;\
         TrustServerCertificate=true;", "140.128.109.115", "sa", "s08490043"));
 
     
@@ -252,11 +259,11 @@ void create_database(SQLCHAR *dbName){
 // 行282: SQLDriverConnect會報錯需修正
 void Connect(char *sql)
 {   
-    /****************/
-    /*              */
-    /* MS 官方程式碼 */
-    /*              */
-    /****************/
+    /**************************/
+    /*                        */
+    /*      MS 官方程式碼      */
+    /*                        */
+    /**************************/
 
     // 分配環境
     if(SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv)==SQL_ERROR)
@@ -282,7 +289,7 @@ void Connect(char *sql)
         SQLDriverConnect(hdbc1, GetDesktopWindow(),
             (SQLCHAR *)sql,
             SQL_NTS, 
-            outStr, (SQLSMALLINT)MAXBUFFLEN, &outStrLen, SQL_DRIVER_COMPLETE));
+            NULL, 0, NULL, SQL_DRIVER_COMPLETE));
 
     fprintf(stdout,"連線成功!\n 連線字串: %s\n", outStr);
 
@@ -405,7 +412,7 @@ char *getToday(){
 
 char *Format(char *format, ...)
 {
-    if (format == NULL) return NULL;
+    if (format == NULL) return "";
 
     else{
         va_list argsList;

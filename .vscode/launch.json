@@ -8,14 +8,14 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/${fileBasenameNoExtension}.exe",
+            "program": "${workspaceFolder}\\${fileBasenameNoExtension}.exe",
             "args": [],
             "stopAtEntry": true,
             "cwd": "${fileDirname}",
             "environment": [],
             "externalConsole": true,
             "MIMode": "gdb",
-            "miDebuggerPath": "D:\\MSYS2\\usr\\bin\\gdb.exe",
+            // "miDebuggerPath": "D:\\MSYS2\\usr\\bin\\gdb.exe",
             "setupCommands": [
                 {
                     "description": "啟用 gdb 的美化顯示",
